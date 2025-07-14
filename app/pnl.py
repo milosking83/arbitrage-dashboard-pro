@@ -47,4 +47,3 @@ def get_pnl():
             "SELECT ts AS timestamp, net AS pnl FROM pnl ORDER BY ts", conn
         )
     return df
-fix: correct syntax error in pnl.py
