@@ -40,3 +40,45 @@ chart = (
     )
 )
 st.altair_chart(chart, use_container_width=True)
+# ───────────────────────── SAFE APP STARTUP ─────────────────────────
+# Replace any direct asyncio.run(...) or long‑blocking init
+
+import asyncio
+import streamlit as st
+
+@st.cache_resource(show_spinner="Initialising backend…")
+def backend_init():
+    """Run async startup tasks without blocking Streamlit."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    async def startup():
+        # TODO: put any slow warm‑up here (or leave empty)
+        return "ready"
+
+    try:
+        result = loop.run_until_complete(startup())
+        return result
+    except Exception as exc:
+        return f"startup_error: {exc}"
+    finally:
+        loop.close()
+
+state = backend_init()
+if isinstance(state, str) and state.startswith("startup_error"):
+    st.warning(state)
+else:
+    st.success("Backend ready!")
+
+# ─────────────────────────── MAIN UI ────────────────────────────
+st.title("Crypto Arbitrage Dashboard 🪙")
+st.write("Click **Scan for arbitrage** to fetch live spreads.")
+
+def scan_once():
+    # put your quick-sync or threaded scan here
+    return "✔ scan complete (mock)"
+
+if st.button("Scan for arbitrage"):
+    with st.spinner("Scanning…"):
+        result = scan_once()
+    st.success(result)
