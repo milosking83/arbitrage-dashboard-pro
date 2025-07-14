@@ -23,9 +23,9 @@ if WC_PROJECT:
         </script>""",
         height=0,
     )
-wc_msg = st.experimental_get_query_params().get("addr")
+wc_msg = st.query_params.get("addr")  # updated to stable API
 if wc_msg:
-    st.session_state["wallet"] = wc_msg[0]
+    st.session_state["wallet"] = wc_msg
 
 # Example arbitrage logic placeholder
 st.title("Crypto Arbitrage Dashboard")
