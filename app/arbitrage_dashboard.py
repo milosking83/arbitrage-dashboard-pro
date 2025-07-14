@@ -1,84 +1,68 @@
 #!/usr/bin/env python3
-from __future__ import annotations
-import asyncio, os, json, time, logging
-from decimal import Decimal
-import pandas as pd, altair as alt, ccxt.async_support as ccxt
-import streamlit as st, streamlit.components.v1 as components
-from web3 import Web3
+import os
+import asyncio
+import pandas as pd
+import altair as alt
+import streamlit as st
+import streamlit.components.v1 as components
 from pnl import record_trade, get_pnl
 
+# ────────────────────────────── WALLET CONNECT UI ─────────────────────────────
+
+st.set_page_config(page_title="Arbitrage Dashboard", layout="centered")
+st.title("🪙 Crypto Arbitrage Dashboard")
+st.write("Track opportunities & profits with wallet status.")
+
+# Visible WalletConnect iframe (replace with your real WC project ID)
 WC_PROJECT = st.secrets.get("walletconnect", {}).get("project_id", "")
 if WC_PROJECT:
+    st.markdown("### 🔌 Connect Wallet via WalletConnect")
     components.html(
         f"""
-        <script type=module>
-          import {{ EthereumProvider }} from 'https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.11.0/dist/umd/index.min.js';
-          async function connect() {{
-             const provider = await EthereumProvider.init({{ projectId: '{WC_PROJECT}', chains:[1,137] }});
-             await provider.enable();
-             const addr = provider.accounts[0];
-             window.parent.postMessage({{ type:'WALLET_CONNECTED', addr }}, '*');
-          }}
-          if (!window.connected) {{ connect(); window.connected=true; }}
-        </script>""",
-        height=0,
+        <iframe
+            src="https://explorer.walletconnect.com/?projectId={WC_PROJECT}&relay-protocol=irn&chain=1"
+            width="100%" height="420" frameborder="0"></iframe>
+        """,
+        height=450,
     )
-wc_msg = st.query_params.get("addr")  # updated to stable API
-if wc_msg:
-    st.session_state["wallet"] = wc_msg
-
-# Example arbitrage logic placeholder
-st.title("Crypto Arbitrage Dashboard")
-st.write("🔄 Simulated arbitrage opportunity loaded...")
-
-record_trade("BTC/USDT", 30100, 30250, 0.05, 150)
-
-pnl_df = get_pnl()
-chart = (
-    alt.Chart(pnl_df).mark_line().encode(
-        x="timestamp:T", y="pnl:Q", tooltip=["timestamp:T", "pnl:Q"]
-    )
-)
-st.altair_chart(chart, use_container_width=True)
-# ───────────────────────── SAFE APP STARTUP ─────────────────────────
-# Replace any direct asyncio.run(...) or long‑blocking init
-
-import asyncio
-import streamlit as st
-
-@st.cache_resource(show_spinner="Initialising backend…")
-def backend_init():
-    """Run async startup tasks without blocking Streamlit."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    async def startup():
-        # TODO: put any slow warm‑up here (or leave empty)
-        return "ready"
-
-    try:
-        result = loop.run_until_complete(startup())
-        return result
-    except Exception as exc:
-        return f"startup_error: {exc}"
-    finally:
-        loop.close()
-
-state = backend_init()
-if isinstance(state, str) and state.startswith("startup_error"):
-    st.warning(state)
 else:
-    st.success("Backend ready!")
+    st.warning("⚠️ WalletConnect project ID not configured in secrets.")
 
-# ─────────────────────────── MAIN UI ────────────────────────────
-st.title("Crypto Arbitrage Dashboard 🪙")
-st.write("Click **Scan for arbitrage** to fetch live spreads.")
+# Optional: manually enter address
+wallet = st.text_input("🧾 Wallet address (optional):", placeholder="0x...")
 
-def scan_once():
-    # put your quick-sync or threaded scan here
-    return "✔ scan complete (mock)"
+# ─────────────────────────────── MOCK ARBITRAGE UI ───────────────────────────────
 
-if st.button("Scan for arbitrage"):
-    with st.spinner("Scanning…"):
-        result = scan_once()
-    st.success(result)
+st.markdown("---")
+st.subheader("📈 Scan & Log Arbitrage Opportunity")
+
+pair = st.selectbox("Select Pair", ["BTC/USDT", "ETH/USDT", "SOL/USDT"])
+buy_px = st.number_input("Buy Price", value=30000.0)
+sell_px = st.number_input("Sell Price", value=30500.0)
+qty = st.number_input("Trade Size", value=0.1)
+spread = round((sell_px - buy_px) / buy_px * 100, 2)
+
+if st.button("🚀 Record Trade"):
+    record_trade(pair, buy_px, sell_px, qty, spread)
+    st.success(f"Logged trade for {pair} with {spread}% spread")
+
+# ─────────────────────────────── PNL CHART SECTION ───────────────────────────────
+
+st.markdown("---")
+st.subheader("📊 Net P&L Chart")
+
+df = get_pnl()
+if not df.empty:
+    chart = (
+        alt.Chart(df)
+        .mark_line(point=True)
+        .encode(
+            x="timestamp:T",
+            y="pnl:Q",
+            tooltip=["timestamp:T", "pnl:Q"]
+        )
+        .interactive()
+    )
+    st.altair_chart(chart, use_container_width=True)
+else:
+    st.info("No PNL data yet. Record a trade to see chart.")
